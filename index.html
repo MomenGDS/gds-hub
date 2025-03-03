@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GDS-HUB</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500&display=swap');
+
+        :root {
+            --primary-1: #4fd1c5;
+            --primary-2: #3b82f6;
+            --primary-3: #8b5cf6;
+            --dark-1: #0f172a;
+            --dark-2: #1e293b;
+            --glass: rgba(148, 163, 184, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: pointer; /* Change from none to pointer */
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(45deg, var(--dark-1), var(--dark-2));
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        .content {
+            position: relative;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .content.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 4rem;
+            position: relative;
+        }
+
+        .title {
+            font-size: 4rem;
+            background: linear-gradient(45deg, var(--primary-1), var(--primary-3));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            filter: drop-shadow(0 0 20px rgba(79, 209, 197, 0.2));
+            animation: titleFlow 6s ease infinite;
+        }
+
+        .subtitle {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            color: #00ff9d;
+            text-shadow: 0 0 10px rgba(0, 255, 157, 0.5),
+                         0 0 20px rgba(0, 255, 157, 0.3),
+                         0 0 30px rgba(0, 255, 157, 0.1);
+            letter-spacing: 2px;
+            margin-top: 1rem;
+            animation: subtitleGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes subtitleGlow {
+            0%, 100% { text-shadow: 0 0 10px rgba(0, 255, 157, 0.5); }
+            50% { text-shadow: 0 0 20px rgba(0, 255, 157, 0.8),
+                               0 0 30px rgba(0, 255, 157, 0.5); }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            padding: 2rem;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.6);  /* Darker, more opaque background */
+            backdrop-filter: blur(16px) saturate(180%);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);  /* Slightly more visible border */
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;  /* Remove underline from links */
+            text-align: center;    /* Center all card content */
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+
+        .card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-cockpit {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3));
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Add these new styles for better text visibility */
+        .card h2 {
+            color: var(--primary-1);
+            margin-bottom: 0.5rem;
+        }
+
+        .card p {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .custom-cursor {
+            position: fixed;
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--primary-1);
+            border-radius: 50%;
+            pointer-events: none;
+            transition: transform 0.3s, background 0.3s;
+            mix-blend-mode: difference;
+        }
+
+        .cursor-trail {
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            background: var(--primary-1);
+            border-radius: 50%;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        @keyframes titleFlow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        @keyframes cockpitGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.6); }
+        }
+
+        .grid a {
+            text-decoration: none;  /* Remove underline from links */
+        }
+
+        /* Add icon styling */
+        .card h2 i {
+            display: inline-block;  /* Change from block to inline-block */
+            font-size: 2rem;       /* Slightly smaller size */
+            margin-right: 0.5rem;  /* Add right margin instead of bottom */
+            background: linear-gradient(45deg, var(--primary-1), var(--primary-2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Add specific styling for double icons (Home Assistant) */
+        .card h2 i + i {
+            margin-left: 0.25rem;
+        }
+
+        /* Update card hover effects with unique colors for each */
+        .card:nth-child(1):hover {
+            box-shadow: 0 0 25px rgba(79, 209, 197, 0.3);
+            border-color: rgba(79, 209, 197, 0.5);
+        }
+
+        .card:nth-child(2):hover {
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .card:nth-child(3):hover {
+            box-shadow: 0 0 25px rgba(139, 92, 246, 0.3);
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+
+        .card:nth-child(4):hover {
+            box-shadow: 0 0 25px rgba(236, 72, 153, 0.3);
+            border-color: rgba(236, 72, 153, 0.5);
+        }
+
+        .card:nth-child(5):hover {
+            box-shadow: 0 0 25px rgba(34, 211, 238, 0.3);
+            border-color: rgba(34, 211, 238, 0.5);
+        }
+
+        /* Add these styles in your <style> section */
+        .password-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .password-overlay.unlocking {
+            opacity: 0;
+            animation: unlockGlow 0.8s forwards;
+        }
+
+        .password-container {
+            background: rgba(30, 41, 59, 0.8);
+            padding: 2rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(79, 209, 197, 0.3);
+            box-shadow: 0 0 20px rgba(79, 209, 197, 0.2);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .password-container h2 {
+            color: var(--primary-1);
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .password-container input {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(79, 209, 197, 0.3);
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 0.5rem;
+            color: white;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .password-container input:focus {
+            border-color: var(--primary-1);
+            box-shadow: 0 0 10px rgba(79, 209, 197, 0.2);
+        }
+
+        .password-container button {
+            background: linear-gradient(45deg, var(--primary-1), var(--primary-2));
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .password-container button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(79, 209, 197, 0.3);
+        }
+
+        .password-error {
+            color: #ef4444;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .password-error.visible {
+            opacity: 1;
+        }
+
+        @keyframes unlockGlow {
+            0% {
+                background: rgba(15, 23, 42, 0.8);
+                backdrop-filter: blur(10px);
+            }
+            50% {
+                background: rgba(79, 209, 197, 0.2);
+                backdrop-filter: blur(0px);
+            }
+            100% {
+                background: transparent;
+                backdrop-filter: blur(0px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="password-overlay" id="passwordOverlay">
+        <div class="password-container">
+            <h2>Enter Password</h2>
+            <input type="password" id="passwordInput" placeholder="Enter password to continue">
+            <button onclick="checkPassword()">Submit</button>
+            <p class="password-error" id="passwordError">Incorrect password. Please try again.</p>
+        </div>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div class="custom-cursor"></div>
+    
+    <div class="content">
+        <header class="header">
+            <h1 class="title">GDS-HUB</h1>
+            <p class="subtitle">Momen's Personal Home-LAB Server</p>
+        </header>
+
+        <div class="grid">
+            <a href="https://gds-hub.cloud/cockpit" class="card card-cockpit">
+                <h2><i class="fas fa-rocket"></i> Cockpit</h2>
+                <p>Core System Dashboard</p>
+            </a>
+
+            <a href="https://gds-hub.cloud/n8n" class="card">
+                <h2><i class="fas fa-network-wired"></i> n8n</h2>
+                <p>Automation Workflows</p>
+            </a>
+
+            <a href="https://gds-hub.cloud/homeassistant" class="card">
+                <h2><i class="fas fa-home"></i><i class="fas fa-cogs"></i> Home Assistant</h2>
+                <p>Smart Environment Control</p>
+            </a>
+
+            <a href="https://gds-hub.cloud/portainer" class="card">
+                <h2><i class="fab fa-docker"></i> Portainer</h2>
+                <p>Container Orchestration</p>
+            </a>
+
+            <a href="https://gds-hub.cloud/nextcloud" class="card">
+                <h2><i class="fas fa-cloud-upload-alt"></i> Nextcloud</h2>
+                <p>Secure File Management</p>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Update the checkPassword function
+        function checkPassword() {
+            const password = document.getElementById('passwordInput').value;
+            const overlay = document.getElementById('passwordOverlay');
+            const error = document.getElementById('passwordError');
+            const content = document.querySelector('.content');
+            
+            if (password === 'Uzumaki_2925') {
+                overlay.classList.add('unlocking');
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    content.classList.add('visible');
+                }, 800);
+                
+                // Store authentication time along with status
+                const authData = {
+                    authenticated: true,
+                    timestamp: Date.now()
+                };
+                sessionStorage.setItem('authData', JSON.stringify(authData));
+            } else {
+                error.classList.add('visible');
+                setTimeout(() => {
+                    error.classList.remove('visible');
+                }, 3000);
+            }
+        }
+
+        // Update the DOMContentLoaded event listener to check timeout
+        document.addEventListener('DOMContentLoaded', () => {
+            const content = document.querySelector('.content');
+            const authData = JSON.parse(sessionStorage.getItem('authData'));
+            const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+            if (authData && authData.authenticated) {
+                const currentTime = Date.now();
+                const timePassed = currentTime - authData.timestamp;
+
+                if (timePassed < thirtyMinutes) {
+                    // Session still valid
+                    document.getElementById('passwordOverlay').style.display = 'none';
+                    content.classList.add('visible');
+                } else {
+                    // Session expired
+                    sessionStorage.removeItem('authData');
+                }
+            }
+        });
+
+        // Add a function to check timeout periodically
+        function checkTimeout() {
+            const authData = JSON.parse(sessionStorage.getItem('authData'));
+            const thirtyMinutes = 30 * 60 * 1000;
+
+            if (authData && authData.authenticated) {
+                const currentTime = Date.now();
+                const timePassed = currentTime - authData.timestamp;
+
+                if (timePassed >= thirtyMinutes) {
+                    // Session expired - reload page to show login
+                    sessionStorage.removeItem('authData');
+                    window.location.reload();
+                }
+            }
+        }
+
+        // Check timeout every minute
+        setInterval(checkTimeout, 60000);
+
+        // Add event listener for Enter key
+        document.getElementById('passwordInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
+        // Animated Particle Background
+        class ParticleBackground {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.particles = [];
+                this.particleCount = window.innerWidth < 768 ? 30 : 60;
+                
+                this.init();
+                this.animate();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            init() {
+                this.resize();
+                for(let i = 0; i < this.particleCount; i++) {
+                    this.particles.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        size: Math.random() * 2 + 1,
+                        speedX: (Math.random() - 0.5) * 0.5,
+                        speedY: (Math.random() - 0.5) * 0.5,
+                        color: `rgba(79, 209, 197, ${Math.random() * 0.4 + 0.1})`
+                    });
+                }
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            animate() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.particles.forEach(particle => {
+                    particle.x += particle.speedX;
+                    particle.y += particle.speedY;
+
+                    if(particle.x > this.canvas.width) particle.x = 0;
+                    if(particle.x < 0) particle.x = this.canvas.width;
+                    if(particle.y > this.canvas.height) particle.y = 0;
+                    if(particle.y < 0) particle.y = this.canvas.height;
+
+                    this.ctx.beginPath();
+                    this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    this.ctx.fillStyle = particle.color;
+                    this.ctx.fill();
+                });
+
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // Custom Cursor with Trail
+        const cursor = document.querySelector('.custom-cursor');
+        const trails = [];
+        const trailCount = 5;
+
+        for(let i = 0; i < trailCount; i++) {
+            const trail = document.createElement('div');
+            trail.className = 'cursor-trail';
+            document.body.appendChild(trail);
+            trails.push({
+                element: trail,
+                x: 0,
+                y: 0,
+                opacity: 1 - (i * 0.2)
+            });
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = `${e.clientX}px`;
+            cursor.style.top = `${e.clientY}px`;
+            
+            trails.forEach((trail, index) => {
+                setTimeout(() => {
+                    trail.element.style.left = `${e.clientX}px`;
+                    trail.element.style.top = `${e.clientY}px`;
+                    trail.element.style.opacity = trail.opacity;
+                }, index * 20);
+            });
+        });
+
+        document.querySelectorAll('a, button').forEach(element => {
+            element.addEventListener('mouseenter', () => {
+                cursor.style.transform = 'scale(1.8)';
+                cursor.style.borderColor = 'var(--primary-3)';
+                trails.forEach(trail => {
+                    trail.element.style.background = 'var(--primary-3)';
+                });
+            });
+            element.addEventListener('mouseleave', () => {
+                cursor.style.transform = 'scale(1)';
+                cursor.style.borderColor = 'var(--primary-1)';
+                trails.forEach(trail => {
+                    trail.element.style.background = 'var(--primary-1)';
+                });
+            });
+        });
+
+        // Initialize systems
+        new ParticleBackground();
+        
+        // Card entrance animation
+        document.querySelectorAll('.card').forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 150);
+        });
+    </script>
+</body>
+</html>
